@@ -98,10 +98,12 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	private static final Log log = LogFactory.getLog(InspectorClient.class);
 	
 	private final ConsoleReader reader;
+	private final Plugin plugin;
 	
-	private InspectorClient(ConsoleReader reader) {
+	private InspectorClient(ConsoleReader reader, Plugin plugin) {
 		super();
 		this.reader = reader;
+		this.plugin = plugin;
 	}
 
 	public ConsoleReader getConsoleReader() {
@@ -128,7 +130,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		}
 	}
 	
-	private void resetLog() {
+	void resetLog() {
 		if(outDir == null) {
 			return;
 		}
@@ -158,65 +160,46 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		return clientCompleter;
 	}
 
-	/**
-	 * Inspector test
-	 */
-	public static void main(String[] args) throws IOException, InterruptedException {
-		File outDir = new File("Inspector");
-		if(args.length > 0) {
-			outDir = new File(args[0]);
-		}
-		FileUtils.forceMkdir(outDir);
-		PersistentHistory history = new FileHistory(new File(outDir, "inspector_history"));
-		
-		System.out.println("Inspector as client mode.");
+	private void runLoop(PersistentHistory history) throws IOException, InterruptedException {
 		String cmd;
-		
-		AndroidDebugBridge.init(false);
-		
-		ConsoleReader reader = new ConsoleReader();
-		reader.setHistory(history);
-		
-		final InspectorClient inspector = new InspectorClient(reader);
-		inspector.setOutDir(outDir);
-		
+
 		// reader.setPrompt("> ");
 		if (reader.getCompletionHandler() instanceof CandidateListCompletionHandler) {
 			CandidateListCompletionHandler.class.cast(reader.getCompletionHandler()).setPrintSpaceAfterFullCompletion(false);
 		}
-		
-		reader.addCompleter(inspector.getClientCompleter());
-		reader.addCompleter(new FileNameCompleter(inspector, outDir, "lua", "pcap"));
+
+		reader.addCompleter(this.getClientCompleter());
+		reader.addCompleter(new FileNameCompleter(this, outDir, "lua", "pcap"));
 		reader.addCompleter(new FileNameCompleter(null, outDir, "apk"));
 
-		Thread thread = new Thread(inspector, "Socket client");
+		Thread thread = new Thread(this, "Socket client");
 		thread.setDaemon(true);
 		thread.start();
-		AndroidDebugBridgeManager manager = new AndroidDebugBridgeManager(inspector, inspector);
-		inspector.manager = manager;
+		AndroidDebugBridgeManager manager = new AndroidDebugBridgeManager(this, this);
+		this.manager = manager;
 		AndroidDebugBridge.addDebugBridgeChangeListener(manager);
 		AndroidDebugBridge.addDeviceChangeListener(manager);
 		AndroidDebugBridge.createBridge();
 		DateFormat dateFormat = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss]");
 		while((cmd = reader.readLine()) != null) {
 			cmd = cmd.trim();
-			
+
 			if("clear".equals(cmd)) {
 				reader.clearScreen();
 				reader.flush();
 				continue;
 			}
-			
+
 			if("quit".equals(cmd) ||
 					"exit".equals(cmd)) {
 				break;
 			}
-			
+
 			if("resetLog".equalsIgnoreCase(cmd)) {
-				inspector.resetLog();
+				this.resetLog();
 				continue;
 			}
-			
+
 			String[] tokens = cmd.split("\\s+");
 			if(tokens.length > 0 && "logcat".equalsIgnoreCase(tokens[0])) {
 				String tag = "";
@@ -240,9 +223,9 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 				continue;
 			}
-			
-			if("reboot".equalsIgnoreCase(cmd) && inspector.adb != null) {
-				for(IDevice device : inspector.adb.getDevices()) {
+
+			if("reboot".equalsIgnoreCase(cmd) && this.adb != null) {
+				for(IDevice device : this.adb.getDevices()) {
 					if(device.isOnline()) {
 						try {
 							device.reboot(null);
@@ -253,18 +236,18 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 				continue;
 			}
-			
-			if("screenShot".equalsIgnoreCase(cmd) && inspector.adb != null &&
-					inspector.outDir != null) {
+
+			if("screenShot".equalsIgnoreCase(cmd) && this.adb != null &&
+					this.outDir != null) {
 				DateFormat screenDateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-				for(IDevice device : inspector.adb.getDevices()) {
+				for(IDevice device : this.adb.getDevices()) {
 					try {
 						BufferedImage image = screenShot(device);
 						if(image == null) {
 							continue;
 						}
-						
-						File save = new File(inspector.outDir, "screenshot_" + device.getName() + "_" + screenDateFormat.format(new Date()) + ".png");
+
+						File save = new File(this.outDir, "screenshot_" + device.getName() + "_" + screenDateFormat.format(new Date()) + ".png");
 						ImageIO.write(image, "png", save);
 						System.out.println("screenshot saved: " + save);
 					} catch(Throwable t) {
@@ -273,35 +256,35 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 				continue;
 			}
-			
+
 			if(isEmpty(cmd)) {
 				cmd = "eval";
 			}
 
 			int index;
-			if(inspector.traceFile != null && cmd.startsWith("trace ")) {
+			if(this.traceFile != null && cmd.startsWith("trace ")) {
 				String keywords = cmd.substring(6).trim();
-				inspector.findTraceFile(keywords);
+				this.findTraceFile(keywords);
 				continue;
 			}
 
 			if("reset".equalsIgnoreCase(cmd)) {
-				inspector.serverMap.clear();
+				this.serverMap.clear();
 				manager.reset();
-				if(inspector.socket != null) {
-					inspector.socket.close();
+				if(this.socket != null) {
+					this.socket.close();
 				}
-				inspector.lastProcessName = null;
+				this.lastProcessName = null;
 				continue;
 			}
-			
-			DataOutputStream writer = inspector.writer;
+
+			DataOutputStream writer = this.writer;
 			if(writer == null) {
 				if("help".equalsIgnoreCase(cmd)) {
 					System.out.println("quit|exit");
 					System.out.println("resetLog");
 					System.out.println("clear");
-					if(inspector.adb != null && inspector.adb.getDevices().length == 1) {
+					if(this.adb != null && this.adb.getDevices().length == 1) {
 						System.out.println("reboot");
 						System.out.println("screenShot");
 						// System.out.println("list");
@@ -321,13 +304,13 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 					}
 					File apk = new File(outDir, file);
 					if(apk.canRead() && apk.length() > 0) {
-						inspector.installApks.add(apk);
+						this.installApks.add(apk);
 						System.err.println("Add auto install apk: " + apk.getAbsolutePath());
 						continue;
 					}
 				}
 
-				if (cmd.startsWith("adb") && (index = cmd.indexOf(' ')) != -1 && inspector.adb != null) {
+				if (cmd.startsWith("adb") && (index = cmd.indexOf(' ')) != -1 && this.adb != null) {
 					String tcp = cmd.substring(index + 1).trim();
 					String[] ips = tcp.split(",");
 					final List<String> list = new ArrayList<>();
@@ -338,29 +321,29 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						list.add(ip);
 					}
 					Thread connectThread = new Thread(() -> {
-                        System.out.println("Begin auto connect adb: " + list);
-                        try {
-                            org.apache.commons.exec.Executor executor = new DefaultExecutor();
-                            executor.setStreamHandler(new PumpStreamHandler());
-                            for (String ip : list) {
-                                while (inspector.adb.getDevices().length > 0) {
-                                    Thread.sleep(1000);
-                                }
+						System.out.println("Begin auto connect adb: " + list);
+						try {
+							org.apache.commons.exec.Executor executor = new DefaultExecutor();
+							executor.setStreamHandler(new PumpStreamHandler());
+							for (String ip : list) {
+								while (this.adb.getDevices().length > 0) {
+									Thread.sleep(1000);
+								}
 
-                                executor.execute(new CommandLine("adb").addArgument("connect").addArgument(ip));
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    });
+								executor.execute(new CommandLine("adb").addArgument("connect").addArgument(ip));
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					});
 					connectThread.setDaemon(true);
 					connectThread.start();
 					continue;
 				}
-				
-				RemoteServer server = createRemoteServer(inspector, cmd);
+
+				RemoteServer server = createRemoteServer(this, cmd);
 				if(server != null) {
-					inspector.currentServer = server;
+					this.currentServer = server;
 					continue;
 				}
 				if(cmd.startsWith("connect ") &&
@@ -368,20 +351,20 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 					String host = cmd.substring(8, index).trim();
 					int port = Integer.parseInt(cmd.substring(index + 1).trim());
 					InetSocketAddress socketAddress = new InetSocketAddress(host, port);
-					inspector.currentServer = new SocketRemoteServer(socketAddress, "custom", 1, "custom", reader);
+					this.currentServer = new SocketRemoteServer(socketAddress, "custom", 1, "custom", reader);
 				}
 				continue;
 			}
-			
+
 			if("close".equalsIgnoreCase(cmd)) {
-				inspector.serverMap.clear();
+				this.serverMap.clear();
 				manager.reset();
-				if(inspector.socket != null) {
-					inspector.socket.close();
+				if(this.socket != null) {
+					this.socket.close();
 				}
 				continue;
 			}
-			
+
 			if("lua".equalsIgnoreCase(FilenameUtils.getExtension(cmd)) && writeFile(0x1, cmd, outDir, writer)) {
 				continue;
 			}
@@ -389,34 +372,64 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			if("pcap".equalsIgnoreCase(FilenameUtils.getExtension(cmd)) && writeFile(0x2, cmd, outDir, writer)) {
 				continue;
 			}
-			
+
 			cmd = cmd.replaceAll("fzp", "FZInspector.print");
 			cmd = cmd.replaceAll("fzi", "FZInspector.inspect");
-			
+
 			if(cmd.startsWith(":")) {
 				cmd = "inspector" + cmd;
 			}
-			
+
 			writer.writeShort(0x0);
 			writer.writeUTF(cmd);
 			writer.flush();
-			
-			if(inspector.logWriter != null) {
-				inspector.logWriter.println(dateFormat.format(new Date()) + "[OUT]" + cmd);
+
+			if(this.logWriter != null) {
+				this.logWriter.println(dateFormat.format(new Date()) + "[OUT]" + cmd);
 			}
 		}
 
-		inspector.canStop = true;
+		this.canStop = true;
 		manager.stop();
 
 		history.flush();
 		IOUtils.closeQuietly(reader);
-		
-		if(inspector.logWriter != null) {
-			inspector.logWriter.close();
+
+		if(this.logWriter != null) {
+			this.logWriter.close();
 		}
 
 		AndroidDebugBridge.terminate();
+	}
+
+	static void service(File outDir, Plugin plugin) throws IOException, InterruptedException {
+		FileUtils.forceMkdir(outDir);
+		PersistentHistory history = new FileHistory(new File(outDir, "inspector_history"));
+
+		System.out.println("Inspector as client mode.");
+
+		AndroidDebugBridge.init(false);
+
+		ConsoleReader reader = new ConsoleReader();
+		reader.setHistory(history);
+
+		InspectorClient client = new InspectorClient(reader, plugin);
+		client.setOutDir(outDir);
+		if (plugin != null) {
+			plugin.onInitialize(client);
+		}
+		client.runLoop(history);
+	}
+
+	/**
+	 * Inspector test
+	 */
+	public static void main(String[] args) throws IOException, InterruptedException {
+		File outDir = new File("Inspector");
+		if(args.length > 0) {
+			outDir = new File(args[0]);
+		}
+		service(outDir, null);
 	}
 
 	private static boolean writeFile(int command, String cmd, File outDir, DataOutputStream writer) throws IOException {
@@ -483,6 +496,10 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	private RemoteServer currentServer;
 	private String lastProcessName;
 	private Socket socket;
+
+	void setLastProcessName(String lastProcessName) {
+		this.lastProcessName = lastProcessName;
+	}
 
 	public String getLastProcessName() {
 		return lastProcessName;
@@ -571,10 +588,15 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							byte[] data = new byte[length];
 							reader.readFully(data);
 							msg = new String(data, "UTF-8");
-							System.out.print(msg);
-							
-							if(logWriter != null) {
-								logWriter.print(dateFormat.format(new Date()) + msg);
+
+							if (plugin != null) {
+								plugin.handleMsg(type, msg, logWriter);
+							} else {
+								System.out.print(msg);
+
+								if(logWriter != null) {
+									logWriter.print(dateFormat.format(new Date()) + msg);
+								}
 							}
 							break;
 						case 0x1102:
