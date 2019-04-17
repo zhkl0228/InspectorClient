@@ -7,6 +7,7 @@ import java.net.SocketException;
 import java.util.concurrent.TimeUnit;
 
 import jline.console.ConsoleReader;
+import org.apache.commons.io.IOUtils;
 
 public abstract class AbstractRemoteServer implements RemoteServer {
 
@@ -31,12 +32,17 @@ public abstract class AbstractRemoteServer implements RemoteServer {
 	
 	final Socket connectSocket(InetSocketAddress addr, String tip) throws IOException {
 		Socket socket = createSocket();
-		socket.connect(addr, (int) TimeUnit.SECONDS.toMillis(10));
-		System.err.println("Connection to device [" + this.model + "][" + this.processName + "] success" + tip);
-		if(reader != null) {
-			reader.setPrompt(this.processName + '@' + this.model + "> ");
+		try {
+			socket.connect(addr, (int) TimeUnit.SECONDS.toMillis(10));
+			System.err.println("Connection to device [" + this.model + "][" + this.processName + "] success" + tip);
+			if (reader != null) {
+				reader.setPrompt(this.processName + '@' + this.model + "> ");
+			}
+			return socket;
+		} catch (IOException e) {
+			IOUtils.closeQuietly(socket);
+			throw e;
 		}
-		return socket;
 	}
 
 	/* (non-Javadoc)

@@ -35,6 +35,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -165,7 +166,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 
 		// reader.setPrompt("> ");
 		if (reader.getCompletionHandler() instanceof CandidateListCompletionHandler) {
-			CandidateListCompletionHandler.class.cast(reader.getCompletionHandler()).setPrintSpaceAfterFullCompletion(false);
+			((CandidateListCompletionHandler) reader.getCompletionHandler()).setPrintSpaceAfterFullCompletion(false);
 		}
 
 		reader.addCompleter(this.getClientCompleter());
@@ -587,7 +588,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							int length = reader.readInt();
 							byte[] data = new byte[length];
 							reader.readFully(data);
-							msg = new String(data, "UTF-8");
+							msg = new String(data, StandardCharsets.UTF_8);
 
 							if (plugin != null) {
 								plugin.handleMsg(type, msg, logWriter);
@@ -603,7 +604,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							length = reader.readInt();
 							data = new byte[length];
 							reader.readFully(data);
-							msg = new String(data, "UTF-8");
+							msg = new String(data, StandardCharsets.UTF_8);
 							System.err.print(msg);
 							
 							if(logWriter != null) {
