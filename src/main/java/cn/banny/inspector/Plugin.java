@@ -7,4 +7,7 @@ public interface Plugin {
     void onInitialize(InspectorClient client);
 
     void handleMsg(int type, String msg, PrintWriter logWriter);
+
+    void handleCommand(String type, String data, PrintWriter logWriter);
+
 }

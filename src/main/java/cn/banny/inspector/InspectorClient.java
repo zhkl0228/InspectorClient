@@ -698,6 +698,16 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							reader.readFully(data);
 							saveSmali(apiLevel, baseName, data);
 							break;
+						case 0x6000: {
+							String commandType = reader.readUTF();
+							String commandData = reader.readUTF();
+							if (plugin != null) {
+								plugin.handleCommand(commandType, commandData, logWriter);
+								break;
+							} else {
+								System.err.println("Not handler command: type=" + commandType + ", data=" + commandData);
+							}
+						}
 						default:
 							System.err.println("No handler for type: 0x" + Integer.toHexString(type).toUpperCase());
 							break;

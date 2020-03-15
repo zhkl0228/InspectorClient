@@ -13,6 +13,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -165,7 +166,7 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
         while (matcher.find()) {
             int port = Integer.parseInt(matcher.group(1));
             String processName = matcher.group(2);
-            String label = new String(Hex.decodeHex(matcher.group(3).toCharArray()), "UTF-8");
+            String label = new String(Hex.decodeHex(matcher.group(3).toCharArray()), StandardCharsets.UTF_8);
 
             StringBuilder sb = new StringBuilder();
             sb.append(InspectorClient.getDeviceName(device));
