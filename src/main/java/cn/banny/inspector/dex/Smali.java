@@ -28,21 +28,20 @@
 
 package cn.banny.inspector.dex;
 
-import cn.banny.utils.IOUtils;
 import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
+import org.apache.commons.io.IOUtils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.DexDataStore;
 import org.jf.dexlib2.writer.io.FileDataStore;
-import org.jf.smali.LexerErrorInterface;
 import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,7 +76,7 @@ public class Smali {
         System.out.println("Prepare assembleSmaliFile total: " + total);
         Thread thread = Thread.currentThread();
         int jobs = Runtime.getRuntime().availableProcessors();
-        ExecutorService executor = Executors.newFixedThreadPool(jobs > 4 ? 4 : jobs);
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(jobs, 4));
         List<Future<Void>> tasks = new ArrayList<>(total);
         WorkerListener workerListener = new $WorkerListener(total);
         for (final File file: filesToProcess) {
@@ -149,11 +148,11 @@ public class Smali {
         InputStreamReader reader = null;
         try {
             fis = new FileInputStream(smaliFile.getAbsolutePath());
-            reader = new InputStreamReader(fis, "UTF-8");
+            reader = new InputStreamReader(fis, StandardCharsets.UTF_8);
             return assembleSmaliFile(reader, smaliFile, dexBuilder, apiLevel);
         } finally {
-            IOUtils.close(reader);
-            IOUtils.close(fis);
+            IOUtils.closeQuietly(reader);
+            IOUtils.closeQuietly(fis);
         }
     }
 
@@ -162,11 +161,11 @@ public class Smali {
             throws Exception {
         CommonTokenStream tokens;
 
-        LexerErrorInterface lexer;
+        smaliFlexLexer lexer;
 
         lexer = new smaliFlexLexer(reader);
-        ((smaliFlexLexer)lexer).setSourceFile(smaliFile);
-        tokens = new CommonTokenStream((TokenSource)lexer);
+        lexer.setSourceFile(smaliFile);
+        tokens = new CommonTokenStream(lexer);
 
         smaliParser parser = new smaliParser(tokens);
         parser.setVerboseErrors(false);

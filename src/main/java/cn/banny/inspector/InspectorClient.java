@@ -1,6 +1,5 @@
 package cn.banny.inspector;
 
-import cn.banny.auxiliary.Inspector;
 import cn.banny.inspector.adb.AndroidDebugBridgeManager;
 import cn.banny.inspector.adb.BootCompleteListener;
 import cn.banny.inspector.completer.ClientCompleter;
@@ -10,7 +9,6 @@ import cn.banny.inspector.dex.Smali;
 import cn.banny.trace.StackTraces;
 import cn.banny.trace.TraceFile;
 import cn.banny.trace.TraceReader;
-import cn.banny.utils.StringUtils;
 import com.android.ddmlib.*;
 import com.android.ddmlib.logcat.LogCatMessage;
 import jline.console.ConsoleReader;
@@ -765,7 +763,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	private TraceFile traceFile;
 
 	private void processTraceFile(String keywords, String title, byte[] traceData) {
-		if (StringUtils.isEmpty(keywords)) {
+		if (keywords == null || keywords.trim().length() < 1) {
 			saveData(title, traceData);
 			return;
 		}
