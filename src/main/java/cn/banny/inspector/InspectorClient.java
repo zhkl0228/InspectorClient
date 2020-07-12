@@ -401,6 +401,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		}
 
 		AndroidDebugBridge.terminate();
+		System.exit(0);
 	}
 
 	static void service(File outDir, Plugin plugin) throws IOException, InterruptedException {
@@ -951,7 +952,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		this.adb = adb;
 	}
 	
-	private Queue<RemoteServer> adbRemoteServerQueue = new LinkedBlockingQueue<>();
+	private final Queue<RemoteServer> adbRemoteServerQueue = new LinkedBlockingQueue<>();
 
 	public void addAdbRemoteServer(AdbRemoteServer adbRemoteServer) {
 		adbRemoteServerQueue.offer(adbRemoteServer);
