@@ -3,3 +3,4 @@
 target/
 inspector-client.iml
 /Inspector/inspector_history
+.DS_Store
