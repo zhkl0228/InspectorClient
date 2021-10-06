@@ -31,7 +31,6 @@ package cn.banny.inspector.dex;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
-import org.apache.commons.io.IOUtils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.DexDataStore;
@@ -40,7 +39,11 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -144,15 +147,8 @@ public class Smali {
     private static boolean assembleSmaliFile(File smaliFile, DexBuilder dexBuilder,
                                              int apiLevel)
             throws Exception {
-        FileInputStream fis = null;
-        InputStreamReader reader = null;
-        try {
-            fis = new FileInputStream(smaliFile.getAbsolutePath());
-            reader = new InputStreamReader(fis, StandardCharsets.UTF_8);
+        try (FileInputStream fis =new FileInputStream(smaliFile.getAbsolutePath()) ; InputStreamReader reader = new InputStreamReader(fis, StandardCharsets.UTF_8)) {
             return assembleSmaliFile(reader, smaliFile, dexBuilder, apiLevel);
-        } finally {
-            IOUtils.closeQuietly(reader);
-            IOUtils.closeQuietly(fis);
         }
     }
 

@@ -1,13 +1,12 @@
 package cn.banny.inspector;
 
+import jline.console.ConsoleReader;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.concurrent.TimeUnit;
-
-import jline.console.ConsoleReader;
-import org.apache.commons.io.IOUtils;
 
 public abstract class AbstractRemoteServer implements RemoteServer {
 
@@ -40,7 +39,7 @@ public abstract class AbstractRemoteServer implements RemoteServer {
 			}
 			return socket;
 		} catch (IOException e) {
-			IOUtils.closeQuietly(socket);
+			socket.close();
 			throw e;
 		}
 	}

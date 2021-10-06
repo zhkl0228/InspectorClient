@@ -9,7 +9,13 @@ import cn.banny.inspector.dex.Smali;
 import cn.banny.trace.StackTraces;
 import cn.banny.trace.TraceFile;
 import cn.banny.trace.TraceReader;
-import com.android.ddmlib.*;
+import com.android.ddmlib.AdbCommandRejectedException;
+import com.android.ddmlib.AndroidDebugBridge;
+import com.android.ddmlib.IDevice;
+import com.android.ddmlib.InstallException;
+import com.android.ddmlib.NullOutputReceiver;
+import com.android.ddmlib.RawImage;
+import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.logcat.LogCatMessage;
 import jline.console.ConsoleReader;
 import jline.console.completer.CandidateListCompletionHandler;
@@ -28,7 +34,18 @@ import org.apache.commons.logging.LogFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
@@ -36,7 +53,16 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -441,12 +467,8 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		if(file.canRead() && file.length() > 0) {
 			writer.writeShort(command);
 			writer.writeInt(Long.valueOf(file.length()).intValue());
-			InputStream inputStream = null;
-			try {
-				inputStream = new FileInputStream(file);
+			try (InputStream inputStream = new FileInputStream(file)) {
 				IOUtils.copy(inputStream, writer);
-			} finally {
-				IOUtils.closeQuietly(inputStream);
 			}
 			return true;
 		}
@@ -820,17 +842,13 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			while (dis.available() > 0) {
 				String name = dis.readUTF();
 				int length = dis.readInt();
-				OutputStream outputStream = null;
-				try {
-					File smaliFile = new File(smaliDir, name);
-					File parent = smaliFile.getParentFile();
-					if (!parent.exists() && !parent.mkdirs()) {
-						throw new IOException("create dirs failed: " + parent);
-					}
-					outputStream = new FileOutputStream(smaliFile);
+				File smaliFile = new File(smaliDir, name);
+				File parent = smaliFile.getParentFile();
+				if (!parent.exists() && !parent.mkdirs()) {
+					throw new IOException("create dirs failed: " + parent);
+				}
+				try (OutputStream outputStream = new FileOutputStream(smaliFile)) {
 					IOUtils.copyLarge(dis, outputStream, 0, length);
-				} finally {
-					IOUtils.closeQuietly(outputStream);
 				}
 			}
 

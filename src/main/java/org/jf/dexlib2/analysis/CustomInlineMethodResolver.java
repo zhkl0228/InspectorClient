@@ -43,6 +43,7 @@ import org.jf.dexlib2.immutable.util.ParamUtil;
 import javax.annotation.Nonnull;
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -82,7 +83,7 @@ public class CustomInlineMethodResolver extends InlineMethodResolver {
     }
 
     public CustomInlineMethodResolver(@Nonnull ClassPath classPath, @Nonnull File inlineTable) throws IOException {
-        this(classPath, Files.toString(inlineTable, Charset.forName("UTF-8")));
+        this(classPath, Files.toString(inlineTable, StandardCharsets.UTF_8));
     }
 
     @Override
