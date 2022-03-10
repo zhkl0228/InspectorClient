@@ -84,7 +84,7 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
                 }
             } catch (Exception e) {
                 log.warn(e.getMessage(), e);
-                try { Thread.sleep(1000); } catch(InterruptedException ignored) {}
+                try { TimeUnit.SECONDS.sleep(1); } catch(InterruptedException ignored) {}
             }
         }
     }
@@ -161,7 +161,9 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
         CountDownLatch countDownLatch = new CountDownLatch(1);
         CollectingOutputReceiver output = new CollectingOutputReceiver(countDownLatch);
         device.executeShellCommand("cat " + unix.getFullPath(), output);
-        countDownLatch.await(5, TimeUnit.SECONDS);
+        if (!countDownLatch.await(5, TimeUnit.SECONDS)) {
+            throw new TimeoutException();
+        }
         Matcher matcher = PATTERN.matcher(output.getOutput());
         while (matcher.find()) {
             int port = Integer.parseInt(matcher.group(1));
@@ -184,7 +186,7 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
             IDevice device = iterator.next();
             try {
                 if (!device.isOnline()) {
-                    Thread.sleep(1);
+                    TimeUnit.MILLISECONDS.sleep(1);
                     continue;
                 }
 
@@ -201,7 +203,7 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
                         executorService.submit(() -> bootCompleteListener.onBootComplete(AndroidDebugBridgeManager.this, device));
                     }
                 } else {
-                    Thread.sleep(1);
+                    TimeUnit.MILLISECONDS.sleep(1);
                 }
             } catch (Exception e) {
                 log.warn(e.getMessage(), e);
