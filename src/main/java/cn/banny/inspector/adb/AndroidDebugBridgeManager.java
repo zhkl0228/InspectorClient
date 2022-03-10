@@ -137,7 +137,7 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
                 }
 
                 checkDevicePid(device, unix);
-                if (stat != null) {
+                if (stat != null && stat.getLastModified().getTime() != 0) {
                     lastModifiedMap.put(device.getSerialNumber(), stat.getLastModified());
                 }
             } catch (TimeoutException | IOException | AdbCommandRejectedException | ShellCommandUnresponsiveException | InterruptedException | DecoderException e) {
