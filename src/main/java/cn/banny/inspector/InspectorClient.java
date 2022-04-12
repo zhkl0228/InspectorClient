@@ -48,14 +48,19 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -185,6 +190,24 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		return clientCompleter;
 	}
 
+	private static Inet4Address getInet4Address() throws SocketException {
+		Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
+		while (enumeration.hasMoreElements()) {
+			NetworkInterface networkInterface = enumeration.nextElement();
+			if (networkInterface.isLoopback()) {
+				continue;
+			}
+			Enumeration<InetAddress> addressEnumeration = networkInterface.getInetAddresses();
+			while (addressEnumeration.hasMoreElements()) {
+				InetAddress address = addressEnumeration.nextElement();
+				if (address instanceof Inet4Address) {
+					return (Inet4Address) address;
+				}
+			}
+		}
+		return null;
+	}
+
 	private void runLoop(PersistentHistory history) throws IOException, InterruptedException {
 		String cmd;
 
@@ -243,7 +266,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 				for(Entry entry : reader.getHistory()) {
 					if(entry.value().toString().contains(kw)) {
-						System.out.println(String.format("%d: %s", entry.index() + 1, entry.value()));
+						System.out.printf("%d: %s%n", entry.index() + 1, entry.value());
 					}
 				}
 				continue;
@@ -352,7 +375,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							executor.setStreamHandler(new PumpStreamHandler());
 							for (String ip : list) {
 								while (this.adb.getDevices().length > 0) {
-									Thread.sleep(1000);
+									TimeUnit.SECONDS.sleep(1);
 								}
 
 								executor.execute(new CommandLine("adb").addArgument("connect").addArgument(ip));
@@ -557,7 +580,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						this.currentServer != null) {
 					remoteServer = this.currentServer;
 					if(remoteServer == null) {
-						Thread.sleep(1000);
+						TimeUnit.SECONDS.sleep(1);
 						continue;
 					}
 					
@@ -572,6 +595,11 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 					DataInputStream in = new DataInputStream(inputStream);
 					writer = new DataOutputStream(socket.getOutputStream());
 
+					Inet4Address address = getInet4Address();
+					if (address != null) {
+						writer.writeShort(0x5);
+						writer.writeUTF(address.getHostAddress());
+					}
 					DateFormat dateFormat = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss]");
 					while(!canStop) {
 						int type = in.readUnsignedShort();
