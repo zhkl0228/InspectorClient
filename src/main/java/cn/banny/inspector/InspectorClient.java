@@ -699,10 +699,15 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 							}
 							mode = reader.readInt();
 							msg = Inspector.inspectString(date, label, data, mode);
-							System.out.println(msg);
-							
-							if(logWriter != null) {
-								logWriter.println(dateFormat.format(new Date()) + msg);
+
+							if (plugin != null) {
+								plugin.handleMsg(type, msg, logWriter);
+							} else {
+								System.out.print(msg);
+
+								if(logWriter != null) {
+									logWriter.print(dateFormat.format(new Date()) + msg);
+								}
 							}
 							break;
 						case 0x4000:
