@@ -10,4 +10,6 @@ public interface Plugin {
 
     void handleCommand(String type, String data, PrintWriter logWriter);
 
+    void handleCommandLine(String pluginCommand, String[] args);
+
 }

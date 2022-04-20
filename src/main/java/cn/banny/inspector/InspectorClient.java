@@ -58,6 +58,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
@@ -232,14 +233,14 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		while((cmd = reader.readLine()) != null) {
 			cmd = cmd.trim();
 
-			if("clear".equals(cmd)) {
+			if("clear".equalsIgnoreCase(cmd)) {
 				reader.clearScreen();
 				reader.flush();
 				continue;
 			}
 
-			if("quit".equals(cmd) ||
-					"exit".equals(cmd)) {
+			if("quit".equalsIgnoreCase(cmd) ||
+					"exit".equalsIgnoreCase(cmd)) {
 				break;
 			}
 
@@ -256,6 +257,13 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 
 				manager.setLogcatTag(tag);
+				continue;
+			}
+			if (plugin != null &&
+					tokens.length > 1 && "plugin".equalsIgnoreCase(tokens[0])) {
+				String pluginCommand = tokens[1];
+				String[] args = Arrays.copyOfRange(tokens, 2, tokens.length);
+				plugin.handleCommandLine(pluginCommand, args);
 				continue;
 			}
 			if(tokens.length > 0 &&
