@@ -603,8 +603,8 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 					DataInputStream in = new DataInputStream(inputStream);
 					writer = new DataOutputStream(socket.getOutputStream());
 
-					Inet4Address address = getInet4Address();
-					if (address != null) {
+					Inet4Address address;
+					if (remoteServer.isAdb() && (address = getInet4Address()) != null) {
 						writer.writeShort(0x5);
 						writer.writeUTF(address.getHostAddress());
 					}
