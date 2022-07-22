@@ -38,8 +38,6 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,6 +53,7 @@ import java.net.NetworkInterface;
 import java.net.Socket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -166,7 +165,9 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			return;
 		}
 
-		IOUtils.closeQuietly(logWriter);
+		if (logWriter != null) {
+			logWriter.close();
+		}
 		if(!new File(outDir, "inspector.log").delete()) {
 			setOutDir(outDir);
 			System.err.println("changeLogFile failed!");
@@ -449,7 +450,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		manager.stop();
 
 		history.flush();
-		IOUtils.closeQuietly(reader);
+		reader.close();
 
 		if(this.logWriter != null) {
 			this.logWriter.close();
@@ -459,7 +460,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		System.exit(0);
 	}
 
-	static void service(File outDir, Plugin plugin) throws IOException, InterruptedException {
+	public static void service(File outDir, Plugin plugin) throws IOException, InterruptedException {
 		FileUtils.forceMkdir(outDir);
 		PersistentHistory history = new FileHistory(new File(outDir, "inspector_history"));
 
@@ -498,7 +499,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		if(file.canRead() && file.length() > 0) {
 			writer.writeShort(command);
 			writer.writeInt(Long.valueOf(file.length()).intValue());
-			try (InputStream inputStream = new FileInputStream(file)) {
+			try (InputStream inputStream = Files.newInputStream(file.toPath())) {
 				IOUtils.copy(inputStream, writer);
 			}
 			return true;
@@ -548,10 +549,12 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	private final Map<String, RemoteServer> serverMap = new ConcurrentHashMap<>(new LinkedHashMap<>());
 	private RemoteServer currentServer;
 	private String lastProcessName;
+	private final List<String> autoConnectProcessNameList = new ArrayList<>();
 	private Socket socket;
 
-	void setLastProcessName(String lastProcessName) {
-		this.lastProcessName = lastProcessName;
+	@SuppressWarnings("unused")
+	public void addAutoConnectProcessName(String processName) {
+		this.autoConnectProcessNameList.add(processName);
 	}
 
 	public String getLastProcessName() {
@@ -577,7 +580,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 					writer = null;
 					connected = false;
 					serverMap.clear();
-					Thread.sleep(1000);
+					TimeUnit.SECONDS.sleep(1);
 					if (manager != null) {
 						manager.reset();
 					}
@@ -792,8 +795,8 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				try {
 					isProcessId = Integer.parseInt(this.lastProcessName) > 0;
 				} catch(NumberFormatException ignored) {}
-				if(currentTimeMillis - lastReconnectTime > TimeUnit.SECONDS.toMillis(5) && (isProcessId || (this.lastProcessName != null &&
-						this.lastProcessName.equals(remoteServer.getProcessName())))) {
+				if(currentTimeMillis - lastReconnectTime > TimeUnit.SECONDS.toMillis(5) &&
+						(isProcessId || canAutoConnect(remoteServer))) {
 					this.currentServer = remoteServer;
 					lastReconnectTime = currentTimeMillis;
 					System.out.println("Try auto connect “" + remoteServer.getModel() + "” id=" + key);
@@ -813,6 +816,14 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				}
 			}
 		}
+	}
+
+	private boolean canAutoConnect(RemoteServer remoteServer) {
+		String processName = remoteServer.getProcessName();
+		if (autoConnectProcessNameList.contains(processName)) {
+			return true;
+		}
+		return this.lastProcessName != null && this.lastProcessName.equals(processName);
 	}
 
 	private void println(String msg) {
@@ -888,7 +899,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				if (!parent.exists() && !parent.mkdirs()) {
 					throw new IOException("create dirs failed: " + parent);
 				}
-				try (OutputStream outputStream = new FileOutputStream(smaliFile)) {
+				try (OutputStream outputStream = Files.newOutputStream(smaliFile.toPath())) {
 					IOUtils.copyLarge(dis, outputStream, 0, length);
 				}
 			}
