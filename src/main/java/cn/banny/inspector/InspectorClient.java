@@ -20,6 +20,7 @@ import com.android.ddmlib.logcat.LogCatMessage;
 import jline.console.ConsoleReader;
 import jline.console.completer.CandidateListCompletionHandler;
 import jline.console.history.FileHistory;
+import jline.console.history.History;
 import jline.console.history.History.Entry;
 import jline.console.history.PersistentHistory;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -81,12 +82,12 @@ import java.util.zip.GZIPInputStream;
  * <code>aload_1</code><br>
  * <code>iconst_1</code>表示发送数据，<code>iconst_0</code>表示接收数据<br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/inspect([BZ)V</code>
- * 
+ * <br/>
  * 带label侦察
  * <code>aload_1</code><br>
  * <code>ldc "label: "</code><br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/inspect([BLjava/lang/String;)V</code>
- * 
+ * <br/>
  * type使用方法：<br>
  * 利用Halo增加字节码如下<br>
  * 
@@ -94,31 +95,31 @@ import java.util.zip.GZIPInputStream;
  * <code>aload_1</code><br>
  * <code>iconst_1</code>表示发送数据，<code>iconst_0</code>表示接收数据<br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/inspect(I[BZ)V</code>
- * 
+ * <br/>
  * 
  * 识别对象类型：<br>
  * 利用Halo增加字节码如下<br>
  * <code>aload_1</code><br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/objectType(Ljava/lang/Object;)V</code>
- * 
+ * <br/>
  * 打印数值
  * <code>ldc "label: "</code><br>
  * <code>iconst_1</code><br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/inspect(Ljava/lang/String;I)V</code>
- * 
+ * <br/>
  * 手动引发错误
  * <code>invokestatic cn/banny/auxiliary/Inspector/throwError()V</code>
- * 
+ * <br/>
  * 根据值比较引发错误
  * <code>iconst_1</code>常量值<br>
  * <code>iconst_1</code>测试值<br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/throwError(II)V</code>
- * 
+ * <br/>
  * 根据值查看执行位置
  * <code>iconst_1</code>常量值<br>
  * <code>iconst_1</code>测试值<br>
  * <code>invokestatic cn/banny/auxiliary/Inspector/where(II)V</code>
- * 
+ * <br/>
  * 
  * @author Banny
  * 
@@ -196,7 +197,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
 		while (enumeration.hasMoreElements()) {
 			NetworkInterface networkInterface = enumeration.nextElement();
-			if (networkInterface.isLoopback()) {
+			if (networkInterface.isLoopback() || networkInterface.isPointToPoint()) {
 				continue;
 			}
 			Enumeration<InetAddress> addressEnumeration = networkInterface.getInetAddresses();
@@ -308,7 +309,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						ImageIO.write(image, "png", save);
 						System.out.println("screenshot saved: " + save);
 					} catch(Throwable t) {
-						t.printStackTrace();
+						t.printStackTrace(System.out);
 					}
 				}
 				continue;
@@ -377,23 +378,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						}
 						list.add(ip);
 					}
-					Thread connectThread = new Thread(() -> {
-						System.out.println("Begin auto connect adb: " + list);
-						try {
-							org.apache.commons.exec.Executor executor = new DefaultExecutor();
-							executor.setStreamHandler(new PumpStreamHandler());
-							for (String ip : list) {
-								while (this.adb.getDevices().length > 0) {
-									TimeUnit.SECONDS.sleep(1);
-								}
-
-								executor.execute(new CommandLine("adb").addArgument("connect").addArgument(ip));
-							}
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					});
-					connectThread.setDaemon(true);
+					Thread connectThread = createConnectAdbThread(list);
 					connectThread.start();
 					continue;
 				}
@@ -430,6 +415,15 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				continue;
 			}
 
+			if ("!".equals(cmd)) {
+				if (lastCmd == null || lastCmd.isEmpty()) {
+					continue;
+				} else {
+					cmd = lastCmd;
+					System.out.println("Eval last: " + lastCmd);
+				}
+			}
+
 			cmd = cmd.replaceAll("fzp", "FZInspector.print");
 			cmd = cmd.replaceAll("fzi", "FZInspector.inspect");
 
@@ -440,6 +434,9 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			writer.writeShort(0x0);
 			writer.writeUTF(cmd);
 			writer.flush();
+			if (cmd.contains(":")) {
+				lastCmd = cmd;
+			}
 
 			if(this.logWriter != null) {
 				this.logWriter.println(dateFormat.format(new Date()) + "[OUT]" + cmd);
@@ -458,6 +455,29 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 
 		AndroidDebugBridge.terminate();
 		System.exit(0);
+	}
+
+	private String lastCmd;
+
+	private Thread createConnectAdbThread(List<String> list) {
+		Thread connectThread = new Thread(() -> {
+			System.out.println("Begin auto connect adb: " + list);
+			try {
+				org.apache.commons.exec.Executor executor = new DefaultExecutor();
+				executor.setStreamHandler(new PumpStreamHandler());
+				for (String ip : list) {
+					while (this.adb.getDevices().length > 0) {
+						TimeUnit.SECONDS.sleep(1);
+					}
+
+					executor.execute(new CommandLine("adb").addArgument("connect").addArgument(ip));
+				}
+			} catch (Exception e) {
+				e.printStackTrace(System.out);
+			}
+		});
+		connectThread.setDaemon(true);
+		return connectThread;
 	}
 
 	public static void service(File outDir, Plugin plugin) throws IOException, InterruptedException {
@@ -1128,11 +1148,11 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		BufferedImage image = new BufferedImage(rawImage.width, rawImage.height, BufferedImage.TYPE_INT_ARGB);
 
 		int index = 0;
-		int indexinc = rawImage.bpp >> 3;
+		int indexInc = rawImage.bpp >> 3;
 		for (int y = 0; y < rawImage.height; y++) {
 			for (int x = 0; x < rawImage.width; x++) {
 				int value = rawImage.getARGB(index);
-				index += indexinc;
+				index += indexInc;
 				image.setRGB(x, y, value);
 			}
 		}
