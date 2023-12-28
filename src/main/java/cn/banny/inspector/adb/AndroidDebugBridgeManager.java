@@ -5,6 +5,7 @@ import cn.banny.inspector.InspectorClient;
 import com.android.ddmlib.*;
 import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.logcat.LogCatFilter;
+import com.android.ddmlib.logcat.LogCatHeader;
 import com.android.ddmlib.logcat.LogCatListener;
 import com.android.ddmlib.logcat.LogCatMessage;
 import com.android.ddmlib.logcat.LogCatReceiverTask;
@@ -238,9 +239,10 @@ public class AndroidDebugBridgeManager implements AndroidDebugBridge.IDebugBridg
                     synchronized (deviceList) {
                         DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
                         for (LogCatMessage msg : msgList) {
-                            if (MANAGER_TAG.equals(msg.getTag())) {
+                            LogCatHeader header = msg.getHeader();
+                            if (MANAGER_TAG.equals(header.getTag())) {
                                 System.err.println("[#" + (deviceList.indexOf(device) + 1) + "]" + "[" + dateFormat.format(new Date()) + "][" + device.getSerialNumber() + "]" + msg.getMessage());
-                            } else if(!logFirst || (msg.getLogLevel() == Log.LogLevel.INFO && PM_TAG.equals(msg.getTag()))) {
+                            } else if(!logFirst || (header.getLogLevel() == Log.LogLevel.INFO && PM_TAG.equals(header.getTag()))) {
                                 if (!logFirst && !deviceList.contains(device)) {
                                     deviceList.add(device);
                                 }

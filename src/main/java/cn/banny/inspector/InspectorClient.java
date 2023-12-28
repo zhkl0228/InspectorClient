@@ -20,7 +20,6 @@ import com.android.ddmlib.logcat.LogCatMessage;
 import jline.console.ConsoleReader;
 import jline.console.completer.CandidateListCompletionHandler;
 import jline.console.history.FileHistory;
-import jline.console.history.History;
 import jline.console.history.History.Entry;
 import jline.console.history.PersistentHistory;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -180,7 +179,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	}
 	
 	private static boolean isEmpty(String in) {
-		return in == null || in.trim().length() < 1;
+		return in == null || in.trim().isEmpty();
 	}
 	
 	private ClientCompleter clientCompleter;
@@ -230,7 +229,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		this.manager = manager;
 		AndroidDebugBridge.addDebugBridgeChangeListener(manager);
 		AndroidDebugBridge.addDeviceChangeListener(manager);
-		AndroidDebugBridge.createBridge();
+		AndroidDebugBridge.createBridge(5, TimeUnit.SECONDS);
 		DateFormat dateFormat = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss]");
 		while((cmd = reader.readLine()) != null) {
 			cmd = cmd.trim();
@@ -648,88 +647,96 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						}
 						
 						switch (type) {
-						case 0x1000:
+						case 0x1000: {
 							String msg = reader.readUTF();
 							System.out.print(msg);
-							
-							if(logWriter != null) {
+
+							if (logWriter != null) {
 								logWriter.print(dateFormat.format(new Date()) + msg);
 							}
 							break;
-						case 0x1002:
-							msg = reader.readUTF();
+						}
+						case 0x1002: {
+							String msg = reader.readUTF();
 							System.err.print(msg);
-							
-							if(logWriter != null) {
+
+							if (logWriter != null) {
 								logWriter.print(dateFormat.format(new Date()) + msg);
 							}
 							break;
-						case 0x1100:
+						}
+						case 0x1100: {
 							int length = reader.readInt();
 							byte[] data = new byte[length];
 							reader.readFully(data);
-							msg = new String(data, StandardCharsets.UTF_8);
+							String msg = new String(data, StandardCharsets.UTF_8);
 
 							if (plugin != null) {
 								plugin.handleMsg(type, msg, logWriter);
 							} else {
 								System.out.print(msg);
 
-								if(logWriter != null) {
+								if (logWriter != null) {
 									logWriter.print(dateFormat.format(new Date()) + msg);
 								}
 							}
 							break;
-						case 0x1102:
-							length = reader.readInt();
-							data = new byte[length];
+						}
+						case 0x1102: {
+							int length = reader.readInt();
+							byte[] data = new byte[length];
 							reader.readFully(data);
-							msg = new String(data, StandardCharsets.UTF_8);
+							String msg = new String(data, StandardCharsets.UTF_8);
 							System.err.print(msg);
-							
-							if(logWriter != null) {
+
+							if (logWriter != null) {
 								logWriter.print(dateFormat.format(new Date()) + msg);
 							}
 							break;
-						case 0x1001:
+						}
+						case 0x1001: {
 							String name = reader.readUTF();
-							data = new byte[reader.readInt()];
+							byte[] data = new byte[reader.readInt()];
 							reader.readFully(data);
 							saveData(name, data);
 							break;
-						case 0x2000:
+						}
+						case 0x2000: {
+							byte[] data;
 							Date date = new Date(reader.readLong());
 							String label = reader.readUTF();
-							if(reader.readBoolean()) {
+							if (reader.readBoolean()) {
 								data = new byte[reader.readInt()];
 								reader.readFully(data);
 							} else {
 								data = null;
 							}
 							int mode = reader.readInt();
-							msg = Inspector.inspectString(date, label, data, mode);
+							String msg = Inspector.inspectString(date, label, data, mode);
 							System.out.println(msg);
-							
-							if(logWriter != null) {
+
+							if (logWriter != null) {
 								logWriter.println(dateFormat.format(new Date()) + msg);
 							}
 							break;
-						case 0x2001:
-							date = new Date(reader.readLong());
-							label = reader.readUTF();
+						}
+						case 0x2001: {
+							Date date = new Date(reader.readLong());
+							String label = reader.readUTF();
 							short[] shortData;
-							if(reader.readBoolean()) {
+							if (reader.readBoolean()) {
 								shortData = new short[reader.readInt()];
-								for(int i = 0; i < shortData.length; i++) {
+								for (int i = 0; i < shortData.length; i++) {
 									shortData[i] = reader.readShort();
 								}
 							} else {
 								shortData = null;
 							}
-							mode = reader.readInt();
-							msg = Inspector.inspectString(date, label, shortData, mode);
+							int mode = reader.readInt();
+							String msg = Inspector.inspectString(date, label, shortData, mode);
 							println(msg);
 							break;
+						}
 						case 0x2002:
 							String prefix = reader.readUTF();
 							ServerCommandCompleter commandCompleter = clientCompleter.createCommandCompleter(prefix);
@@ -744,31 +751,33 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 								commandCompleter.addCommandHelp(command, help);
 							}
 							break;
-						case 0x3000:
-							date = new Date(reader.readLong());
-							length = reader.readInt();
+						case 0x3000: {
+							Date date = new Date(reader.readLong());
+							int length = reader.readInt();
 							byte[] labelData = new byte[length];
 							reader.readFully(labelData);
-							label = new String(labelData);
-							if(reader.readBoolean()) {
+							String label = new String(labelData);
+							byte[] data;
+							if (reader.readBoolean()) {
 								data = new byte[reader.readInt()];
 								reader.readFully(data);
 							} else {
 								data = null;
 							}
-							mode = reader.readInt();
-							msg = Inspector.inspectString(date, label, data, mode);
+							int mode = reader.readInt();
+							String msg = Inspector.inspectString(date, label, data, mode);
 
 							if (plugin != null) {
 								plugin.handleMsg(type, msg, logWriter);
 							} else {
 								System.out.print(msg);
 
-								if(logWriter != null) {
+								if (logWriter != null) {
 									logWriter.print(dateFormat.format(new Date()) + msg);
 								}
 							}
 							break;
+						}
 						case 0x4000:
 							String keywords = reader.readUTF();
 							String title = reader.readUTF();
@@ -779,7 +788,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 						case 0x5000:
 							int apiLevel = reader.readInt();
 							String baseName = reader.readUTF();
-							data = new byte[reader.readInt()];
+							byte[] data = new byte[reader.readInt()];
 							reader.readFully(data);
 							saveSmali(apiLevel, baseName, data);
 							break;
@@ -857,7 +866,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	private TraceFile traceFile;
 
 	private void processTraceFile(String keywords, String title, byte[] traceData) {
-		if (keywords == null || keywords.trim().length() < 1) {
+		if (keywords == null || keywords.trim().isEmpty()) {
 			saveData(title, traceData);
 			return;
 		}
@@ -871,7 +880,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 
 			findTraceFile(keywords);
 		} catch(Exception e) {
-			e.printStackTrace();
+			e.printStackTrace(System.out);
 
 			saveData(title, traceData);
 		}
@@ -928,7 +937,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			Smali.assembleSmaliFile(apiLevel, new File(smaliDir, "smali"), out);
 			System.out.println("file saved to: " + out + ", size=" + out.length());
 		} catch(Exception e) {
-			e.printStackTrace();
+			e.printStackTrace(System.err);
 		} finally {
 			FileUtils.deleteQuietly(smaliDir);
 		}

@@ -65,7 +65,7 @@ public class CustomInlineMethodResolver extends InlineMethodResolver {
             String line = br.readLine();
 
             while (line != null) {
-                if (line.length() > 0) {
+                if (!line.isEmpty()) {
                     lines.add(line);
                 }
 
@@ -83,7 +83,7 @@ public class CustomInlineMethodResolver extends InlineMethodResolver {
     }
 
     public CustomInlineMethodResolver(@Nonnull ClassPath classPath, @Nonnull File inlineTable) throws IOException {
-        this(classPath, Files.toString(inlineTable, StandardCharsets.UTF_8));
+        this(classPath, Files.asCharSource(inlineTable, StandardCharsets.UTF_8).read());
     }
 
     @Override
