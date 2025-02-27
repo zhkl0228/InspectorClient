@@ -10,6 +10,7 @@ import cn.banny.trace.StackTraces;
 import cn.banny.trace.TraceFile;
 import cn.banny.trace.TraceReader;
 import com.android.ddmlib.AdbCommandRejectedException;
+import com.android.ddmlib.AdbInitOptions;
 import com.android.ddmlib.AndroidDebugBridge;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.InstallException;
@@ -17,6 +18,7 @@ import com.android.ddmlib.NullOutputReceiver;
 import com.android.ddmlib.RawImage;
 import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.logcat.LogCatMessage;
+import com.google.common.collect.ImmutableMap;
 import jline.console.ConsoleReader;
 import jline.console.completer.CandidateListCompletionHandler;
 import jline.console.history.FileHistory;
@@ -463,7 +465,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 		Thread connectThread = new Thread(() -> {
 			System.out.println("Begin auto connect adb: " + list);
 			try {
-				org.apache.commons.exec.Executor executor = new DefaultExecutor();
+				org.apache.commons.exec.Executor executor = DefaultExecutor.builder().get();
 				executor.setStreamHandler(new PumpStreamHandler());
 				for (String ip : list) {
 					while (this.adb.getDevices().length > 0) {
@@ -486,7 +488,11 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 
 		System.out.println("Inspector as client mode.");
 
-		AndroidDebugBridge.init(false);
+		AndroidDebugBridge.init(AdbInitOptions.builder()
+				.withEnv(ImmutableMap.of())
+				.setClientSupportEnabled(false)
+				.enableUserManagedAdbMode(AndroidDebugBridge.DEFAULT_ADB_PORT)
+				.withEnv("ADB_LIBUSB", "0").build());
 
 		ConsoleReader reader = new ConsoleReader();
 		reader.setHistory(history);
@@ -1020,13 +1026,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 	}
 	
 	private static void close(InputStream is) {
-		if(is == null) {
-			return;
-		}
-		
-		try {
-			is.close();
-		} catch(Exception ignored) {}
+        Inspector.close(is);
 	}
 
 	@SuppressWarnings("unused")
@@ -1128,7 +1128,7 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 				device.reboot(null);
 			}
 			lastInstallSerialNumber.add(device.getSerialNumber());
-			org.apache.commons.exec.Executor executor = new DefaultExecutor();
+			org.apache.commons.exec.Executor executor = DefaultExecutor.builder().get();
 			executor.setStreamHandler(new PumpStreamHandler());
 			executor.execute(new CommandLine("adb").addArgument("disconnect"));
 		}
