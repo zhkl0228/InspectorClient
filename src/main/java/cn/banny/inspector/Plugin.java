@@ -12,4 +12,6 @@ public interface Plugin {
 
     void handleCommandLine(String pluginCommand, String[] args);
 
+    default void notifyExit() {}
+
 }

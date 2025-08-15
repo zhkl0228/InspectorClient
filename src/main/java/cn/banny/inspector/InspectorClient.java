@@ -245,6 +245,9 @@ public class InspectorClient implements Runnable, BootCompleteListener {
 			if("quit".equalsIgnoreCase(cmd) ||
 					"q".equals(cmd) ||
 					"exit".equalsIgnoreCase(cmd)) {
+                if (plugin != null) {
+                    plugin.notifyExit();
+                }
 				break;
 			}
 
